@@ -112,6 +112,13 @@
 
   .vault-empty{text-align:center; padding:30px 10px; color:var(--parchment); opacity:0.55; font-size:14px;}
 
+  .pick-banner{
+    background:linear-gradient(135deg, rgba(232,192,114,0.22), rgba(224,80,143,0.18));
+    border:1.5px solid rgba(232,192,114,0.5); border-radius:12px; padding:12px 16px;
+    font-family:'Cinzel',serif; font-size:13px; text-align:center; color:var(--gold);
+    margin-bottom:16px;
+  }
+
   .storage-note{text-align:center; font-size:11.5px; color:var(--parchment); opacity:0.5; margin-top:18px;}
 
   /* ---------- preview modal ---------- */
@@ -273,6 +280,8 @@
   </header>
 
   <div class="temple-panel">
+    <div class="pick-banner" id="pickBanner" style="display:none;">📤 Pick a file below to send it back to Action Plan 3000.</div>
+
     <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
       <div class="dz-icon">🏺</div>
       <div class="dz-text">Drop files here, or tap to browse</div>
@@ -409,7 +418,11 @@ async function renderVault(){
     filtered.forEach(a=>{
       const card=document.createElement('div');
       card.className='artifact-card';
-      card.onclick=()=>{ if(card.dataset.exploding==='1') return; openPreview(a.id); };
+      card.onclick=()=>{
+        if(card.dataset.exploding==='1') return;
+        if(pickMode){ getArtifact(a.id).then(sendFileBackToOpener); }
+        else { openPreview(a.id); }
+      };
       const icon=iconFor(a.type, a.name);
       let thumbHtml = icon ? icon : '🖼️';
       card.innerHTML=
@@ -849,6 +862,61 @@ if(initMuteBtn){ initMuteBtn.textContent=vaultMuted?'🔇':'🔊'; initMuteBtn.c
 openVaultDB().then(database=>{ db=database; renderVault(); }).catch(()=>{
   document.getElementById('vaultGrid').innerHTML='<div class="vault-empty">This browser can\'t open the vault\'s storage — try a different browser.</div>';
 });
+
+/* ============================================================
+   INCOMING BRIDGE — lets another page (like Action Plan 3000)
+   hand a file straight into the vault via postMessage, without
+   either page needing to reach into the other's storage.
+   ============================================================ */
+window.addEventListener('message', async (event)=>{
+  const msg=event.data;
+  if(!msg || msg.type!=='vault-add-file') return;
+  try{
+    if(!db) db=await openVaultDB();
+    const byteChars=atob(msg.dataBase64);
+    const byteNumbers=new Array(byteChars.length);
+    for(let i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
+    const byteArray=new Uint8Array(byteNumbers);
+    const blob=new Blob([byteArray], {type: msg.mime||'application/octet-stream'});
+    const file=new File([blob], msg.name||'file', {type: msg.mime||'application/octet-stream'});
+    await addArtifact(file);
+    playJarRattle();
+    renderVault();
+    if(event.source) event.source.postMessage({type:'vault-add-file-ack', ok:true, name:msg.name}, event.origin);
+  }catch(err){
+    if(event.source) event.source.postMessage({type:'vault-add-file-ack', ok:false, error:String(err)}, event.origin);
+  }
+});
+// tell whoever opened this tab that the vault is loaded and ready to receive
+if(window.opener){
+  try{ window.opener.postMessage({type:'vault-ready'}, '*'); }catch(e){}
+}
+
+/* ============================================================
+   OUTGOING BRIDGE — when opened with ?pick=1 (by a page like
+   Action Plan 3000 asking to load a file), tapping any artifact
+   sends it back to whoever opened this tab instead of previewing it.
+   ============================================================ */
+const pickMode = new URLSearchParams(location.search).get('pick')==='1';
+if(pickMode){
+  const banner=document.getElementById('pickBanner');
+  if(banner) banner.style.display='block';
+}
+function sendFileBackToOpener(a){
+  if(!a || !window.opener) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const base64=reader.result.split(',')[1];
+    try{
+      window.opener.postMessage({type:'vault-file-picked', name:a.name, mime:a.type, dataBase64:base64}, '*');
+      const banner=document.getElementById('pickBanner');
+      if(banner) banner.textContent='✅ Sent "'+a.name+'" back — you can switch back to that tab now.';
+      playGenieMagic();
+    }catch(e){}
+  };
+  reader.readAsDataURL(a.blob);
+}
+
 </script>
 </body>
 </html>
