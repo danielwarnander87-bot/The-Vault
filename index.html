@@ -146,6 +146,45 @@
     padding:6px 12px; cursor:pointer; backdrop-filter:blur(4px);
   }
   .mute-toggle.is-muted{opacity:0.55;}
+
+  /* ---------- The Genie — follows the cursor, flies to a card on hold ---------- */
+  #genie{
+    position:fixed; top:0; left:0; z-index:60; pointer-events:none;
+    font-size:34px; will-change:transform;
+  }
+  #genie .genie-bob{display:inline-block; animation:genieBob 2.2s ease-in-out infinite;
+    filter:drop-shadow(0 6px 10px rgba(0,0,0,0.4)) drop-shadow(0 0 14px rgba(224,80,143,0.5));}
+  @keyframes genieBob{0%,100%{transform:translateY(0) rotate(-4deg);}50%{transform:translateY(-8px) rotate(4deg);}}
+  #genie.charging .genie-bob{animation:genieCharging 0.35s ease-in-out infinite;}
+  @keyframes genieCharging{0%,100%{transform:translateY(0) scale(1) rotate(-6deg);}50%{transform:translateY(-4px) scale(1.15) rotate(6deg);}}
+
+  .hold-ring{
+    position:absolute; top:6px; left:50%; transform:translateX(-50%);
+    width:26px; height:26px; border-radius:50%;
+    background:conic-gradient(var(--gold) calc(var(--pct,0) * 1%), rgba(255,255,255,0.15) 0);
+    -webkit-mask:radial-gradient(closest-side, transparent 68%, #000 70%);
+    mask:radial-gradient(closest-side, transparent 68%, #000 70%);
+    z-index:5;
+  }
+  .artifact-card.charging{border-color:var(--gold); box-shadow:0 0 22px rgba(232,192,114,0.35);}
+  .artifact-card.exploding{pointer-events:none;}
+
+  .firework-layer{position:fixed; inset:0; z-index:55; pointer-events:none;}
+  .firework-bit{position:absolute; border-radius:50%; will-change:transform,opacity;
+    animation:fireworkFly 0.85s cubic-bezier(.15,.6,.3,1) forwards;}
+  @keyframes fireworkFly{
+    0%{transform:translate(0,0) scale(1); opacity:1;}
+    100%{transform:translate(var(--fx,60px),var(--fy,-60px)) scale(0.3); opacity:0;}
+  }
+
+  .vapor-wisp{position:fixed; top:0; left:0; z-index:59; pointer-events:none; border-radius:50%;
+    background:radial-gradient(circle, rgba(224,150,220,0.55), rgba(150,90,200,0.25) 55%, transparent 75%);
+    filter:blur(3px); will-change:transform,opacity;
+    animation:wispFade 0.85s ease-out forwards;}
+  @keyframes wispFade{
+    0%{transform:translate(0,0) scale(0.6); opacity:0.65;}
+    100%{transform:translate(var(--wx,0px),var(--wy,-18px)) scale(1.8); opacity:0;}
+  }
 </style>
 </head>
 <body>
@@ -255,6 +294,9 @@
     pull one out (⬇) when you need it, then load it into whichever app is asking for it.
   </footer>
 </div>
+
+<div id="genie"><span class="genie-bob">🧞</span></div>
+<div class="firework-layer" id="fireworkLayer"></div>
 
 <div class="preview-overlay" id="previewOverlay" onclick="if(event.target===this)closePreview();">
   <div class="preview-modal">
@@ -367,15 +409,17 @@ async function renderVault(){
     filtered.forEach(a=>{
       const card=document.createElement('div');
       card.className='artifact-card';
-      card.onclick=()=>openPreview(a.id);
+      card.onclick=()=>{ if(card.dataset.exploding==='1') return; openPreview(a.id); };
       const icon=iconFor(a.type, a.name);
       let thumbHtml = icon ? icon : '🖼️';
       card.innerHTML=
         '<button class="artifact-del" onclick="event.stopPropagation();quickDelete('+a.id+')" title="Remove">✕</button>'+
+        '<div class="hold-ring" style="display:none;"></div>'+
         '<div class="artifact-thumb" id="thumb-'+a.id+'">'+thumbHtml+'</div>'+
         '<div class="artifact-name">'+escapeHtmlVault(a.name)+'</div>'+
         '<div class="artifact-meta">'+fmtSize(a.size)+' · '+fmtDate(a.dateAdded)+'</div>';
       grid.appendChild(card);
+      attachLongPress(card, a.id);
       if(a.type.startsWith('image/')){
         const url=URL.createObjectURL(a.blob);
         const thumbEl=document.getElementById('thumb-'+a.id);
@@ -579,16 +623,77 @@ function stopWind(){
   }catch(e){}
   windNodes=null;
 }
+
+/* ---- mystical theme — a slow, spacious bell melody over a sustained
+   pad, in A harmonic minor for that exotic/ancient color ---- */
+function playMysticTone(freq, delay, dur, type, vol){
+  if(vaultMuted) return;
+  const ctx=ensureAudioCtx();
+  if(!ctx) return;
+  try{
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=type||'sine'; o.frequency.value=freq;
+    o.connect(g); g.connect(ctx.destination);
+    const t0=ctx.currentTime+(delay||0);
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.linearRampToValueAtTime(vol||0.045, t0+0.12);   // soft attack
+    g.gain.linearRampToValueAtTime((vol||0.045)*0.8, t0+dur*0.6); // gentle sustain
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);   // slow release
+    o.start(t0); o.stop(t0+dur+0.05);
+  }catch(e){}
+}
+const THEME_STEP=0.17; // slow, spacious — Chrono Trigger-esque breathing room
+const THEME_LEAD_A=[
+  {step:0,  freq:440.00, dur:1.1},  // A4
+  {step:6,  freq:523.25, dur:0.65}, // C5
+  {step:9,  freq:493.88, dur:0.6},  // B4
+  {step:12, freq:659.25, dur:1.3},  // E5
+];
+const THEME_BASS_A=[
+  {step:0, freq:110.00, dur:2.7},   // A2, sustained under the whole bar
+  {step:8, freq:82.41,  dur:1.3},   // E2
+];
+const THEME_LEAD_B=[
+  {step:0,  freq:415.30, dur:0.8},  // G#4 — the harmonic-minor color tone
+  {step:5,  freq:440.00, dur:0.6},
+  {step:9,  freq:349.23, dur:0.6},  // F4
+  {step:13, freq:329.63, dur:1.3},  // E4 — resolves back toward A
+];
+const THEME_BASS_B=[
+  {step:0, freq:87.31, dur:1.3},    // F2
+  {step:8, freq:82.41, dur:1.4},    // E2
+];
+let themeActive=false, themeTimeoutId=null, themeBarToggle=0;
+function playThemeBar(lead, bass){
+  lead.forEach(n=>playMysticTone(n.freq, n.step*THEME_STEP, n.dur, 'triangle', 0.05));
+  bass.forEach(n=>playMysticTone(n.freq, n.step*THEME_STEP, n.dur, 'sine', 0.038));
+}
+function scheduleTheme(){
+  if(!themeActive || vaultMuted) return;
+  const barDuration=16*THEME_STEP;
+  if(themeBarToggle===0){ playThemeBar(THEME_LEAD_A, THEME_BASS_A); } else { playThemeBar(THEME_LEAD_B, THEME_BASS_B); }
+  themeBarToggle = themeBarToggle===0 ? 1 : 0;
+  themeTimeoutId=setTimeout(scheduleTheme, barDuration*1000);
+}
+function startTheme(){
+  if(themeActive || vaultMuted) return;
+  themeActive=true; themeBarToggle=0;
+  scheduleTheme();
+}
+function stopTheme(){
+  themeActive=false;
+  if(themeTimeoutId){ clearTimeout(themeTimeoutId); themeTimeoutId=null; }
+}
 function toggleVaultMute(){
   vaultMuted=!vaultMuted;
   try{ localStorage.setItem('theVault_muted', vaultMuted?'1':'0'); }catch(e){}
   const btn=document.getElementById('muteBtn');
   if(btn){ btn.textContent=vaultMuted?'🔇':'🔊'; btn.classList.toggle('is-muted', vaultMuted); }
-  if(vaultMuted){ stopWind(); } else { ensureAudioCtx(); startWind(); }
+  if(vaultMuted){ stopWind(); stopTheme(); } else { ensureAudioCtx(); startWind(); startTheme(); }
 }
 document.addEventListener('click', function firstTouch(){
   ensureAudioCtx();
-  if(!vaultMuted) startWind();
+  if(!vaultMuted){ startWind(); startTheme(); }
   document.removeEventListener('click', firstTouch);
 }, {once:true});
 
@@ -609,6 +714,132 @@ function playJarRattle(){
     playNoiseHit(t, 0.035, vol, 2200+Math.random()*800, 4, 'bandpass');
     playTone(1400+Math.random()*400, t, 0.03, 'square', vol*0.5);
     t+=gap;
+  }
+}
+function playGenieMagic(){
+  if(vaultMuted) return;
+  // a sparkly ascending flourish, then a soft airy whoosh as it vanishes
+  [1046.5,1318.51,1568.0,2093.0].forEach((f,i)=>playTone(f, i*0.05, 0.14, 'sine', 0.06));
+  playNoiseHit(0.05, 0.4, 0.05, 3200, 1.2, 'highpass');
+}
+
+/* ============================================================
+   THE GENIE — drifts toward the cursor, and when you hold down
+   on an artifact card long enough, flies over and makes it
+   disappear in a burst of fireworks.
+   ============================================================ */
+let cursorX=window.innerWidth/2, cursorY=window.innerHeight/2;
+let genieX=cursorX, genieY=cursorY;
+let genieTargetOverride=null;
+let geniePrevX=genieX, geniePrevY=genieY, wispFrameCount=0;
+document.addEventListener('pointermove', e=>{ cursorX=e.clientX; cursorY=e.clientY; });
+function spawnWisp(x, y, speed){
+  const layer=document.getElementById('fireworkLayer'); // shared fixed overlay, fine to reuse
+  const wisp=document.createElement('div');
+  wisp.className='vapor-wisp';
+  const size=8+Math.random()*10;
+  wisp.style.width=size+'px'; wisp.style.height=size+'px';
+  wisp.style.left=(x-size/2)+'px'; wisp.style.top=(y-size/2)+'px';
+  wisp.style.setProperty('--wx',(Math.random()*16-8)+'px');
+  wisp.style.setProperty('--wy',(-14-Math.random()*14)+'px');
+  layer.appendChild(wisp);
+  setTimeout(()=>wisp.remove(), 900);
+}
+function genieLoop(){
+  const target = genieTargetOverride || {x:cursorX, y:cursorY};
+  genieX += (target.x - genieX) * 0.1;
+  genieY += (target.y - genieY) * 0.1;
+  const el=document.getElementById('genie');
+  if(el) el.style.transform='translate('+(genieX-17)+'px,'+(genieY-46)+'px)';
+
+  // trail a soft vapor wisp behind it while it's actually moving, throttled
+  // to every 3rd frame so it reads as a wake, not a solid smear
+  const moveDist=Math.hypot(genieX-geniePrevX, genieY-geniePrevY);
+  wispFrameCount++;
+  if(moveDist>0.6 && wispFrameCount%3===0){
+    spawnWisp(genieX+17, genieY+58, moveDist);
+  }
+  geniePrevX=genieX; geniePrevY=genieY;
+
+  requestAnimationFrame(genieLoop);
+}
+requestAnimationFrame(genieLoop);
+
+const HOLD_MS=750;
+function attachLongPress(card, artifactId){
+  let pressTimer=null, holding=false, progressTimer=null, startedAt=0;
+  const ring=card.querySelector('.hold-ring');
+
+  function updateRing(){
+    if(!holding) return;
+    const pct=Math.min(100, ((performance.now()-startedAt)/HOLD_MS)*100);
+    ring.style.setProperty('--pct', pct);
+    if(pct<100) progressTimer=requestAnimationFrame(updateRing);
+  }
+  function begin(e){
+    if(e.button!==undefined && e.button!==0) return; // left-click / primary touch only
+    holding=true; startedAt=performance.now();
+    card.classList.add('charging');
+    document.getElementById('genie').classList.add('charging');
+    ring.style.display='block'; ring.style.setProperty('--pct',0);
+    const rect=card.getBoundingClientRect();
+    genieTargetOverride={x:rect.left+rect.width/2, y:rect.top-10};
+    progressTimer=requestAnimationFrame(updateRing);
+    pressTimer=setTimeout(()=>{
+      if(!holding) return;
+      completeLongPress(card, artifactId);
+    }, HOLD_MS);
+  }
+  function cancel(){
+    if(!holding) return;
+    holding=false;
+    clearTimeout(pressTimer);
+    cancelAnimationFrame(progressTimer);
+    card.classList.remove('charging');
+    document.getElementById('genie').classList.remove('charging');
+    if(ring){ ring.style.display='none'; ring.style.setProperty('--pct',0); }
+    genieTargetOverride=null;
+  }
+  card.addEventListener('pointerdown', begin);
+  card.addEventListener('pointerup', cancel);
+  card.addEventListener('pointerleave', cancel);
+  card.addEventListener('pointercancel', cancel);
+}
+function completeLongPress(card, artifactId){
+  card.dataset.exploding='1';
+  card.classList.add('exploding');
+  document.getElementById('genie').classList.remove('charging');
+  genieTargetOverride=null;
+  spawnFireworks(card);
+  playGenieMagic();
+  card.style.transition='transform 0.5s ease, opacity 0.5s ease';
+  card.style.transform='scale(0.15) rotate(20deg)';
+  card.style.opacity='0';
+  setTimeout(async ()=>{
+    await deleteArtifactById(artifactId);
+    renderVault();
+  }, 550);
+}
+function spawnFireworks(card){
+  const layer=document.getElementById('fireworkLayer');
+  const rect=card.getBoundingClientRect();
+  const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+  const colors=['#e8c072','#e0508f','#ff8fc0','#f4e6d8','#c98a8f'];
+  const count=20;
+  for(let i=0;i<count;i++){
+    const bit=document.createElement('div');
+    bit.className='firework-bit';
+    const angle=(Math.PI*2*i)/count + Math.random()*0.4;
+    const dist=50+Math.random()*70;
+    bit.style.setProperty('--fx',(Math.cos(angle)*dist)+'px');
+    bit.style.setProperty('--fy',(Math.sin(angle)*dist)+'px');
+    const size=4+Math.random()*5;
+    bit.style.width=size+'px'; bit.style.height=size+'px';
+    bit.style.left=cx+'px'; bit.style.top=cy+'px';
+    bit.style.background=colors[Math.floor(Math.random()*colors.length)];
+    bit.style.boxShadow='0 0 6px '+colors[Math.floor(Math.random()*colors.length)];
+    layer.appendChild(bit);
+    setTimeout(()=>bit.remove(), 950);
   }
 }
 
