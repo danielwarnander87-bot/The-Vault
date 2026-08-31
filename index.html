@@ -937,10 +937,16 @@ if(window.opener){
    Action Plan 3000 asking to load a file), tapping any artifact
    sends it back to whoever opened this tab instead of previewing it.
    ============================================================ */
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
 const pickMode = new URLSearchParams(location.search).get('pick')==='1';
 if(pickMode){
   const banner=document.getElementById('pickBanner');
-  if(banner) banner.style.display='block';
+  if(banner){
+    banner.style.display='block';
+    banner.textContent = IS_IOS
+      ? '📤 Pick a file below — on iPhone/iPad it downloads straight to your device, then use "Load from File" in the other app.'
+      : '📤 Pick a file below to send it back to the other app.';
+  }
 }
 function sendFileBackToOpener(a){
   if(!a) return;
@@ -948,18 +954,17 @@ function sendFileBackToOpener(a){
   reader.onload=()=>{
     const base64=reader.result.split(',')[1];
     let messagedOk=false;
-    if(window.opener){
+    // iOS aggressively suspends/discards backgrounded tabs to save memory,
+    // which silently swallows this message far more often than not — so
+    // there's no point pretending a live handoff is happening there. Skip
+    // straight to a real download, which always works regardless of what
+    // happened to the other tab.
+    if(!IS_IOS && window.opener){
       try{
         window.opener.postMessage({type:'vault-file-picked', name:a.name, mime:a.type, dataBase64:base64}, '*');
         messagedOk=true;
       }catch(e){}
     }
-    // Also trigger a real download every time, not just as a fallback —
-    // on mobile, the tab that opened this one may have already been
-    // suspended or discarded to save memory, silently swallowing the
-    // message above with no way to tell from here whether it landed.
-    // A downloaded file always works, regardless of what happened to
-    // the other tab.
     const url=URL.createObjectURL(a.blob);
     const dlLink=document.createElement('a');
     dlLink.href=url; dlLink.download=a.name;
@@ -968,9 +973,13 @@ function sendFileBackToOpener(a){
 
     const banner=document.getElementById('pickBanner');
     if(banner){
-      banner.textContent = messagedOk
-        ? '✅ Sent "'+a.name+'" back, and downloaded it too — if the other tab didn\'t update, use "Load from File" with the download instead.'
-        : '⬇️ Downloaded "'+a.name+'" — use "Load from File" in the other app to bring it in.';
+      if(IS_IOS){
+        banner.textContent='📥 Saved "'+a.name+'" to your device — open the other app and use "Load from File" to bring it in.';
+      } else {
+        banner.textContent = messagedOk
+          ? '✅ Sent "'+a.name+'" back, and downloaded it too — if the other tab didn\'t update, use "Load from File" with the download instead.'
+          : '⬇️ Downloaded "'+a.name+'" — use "Load from File" in the other app to bring it in.';
+      }
     }
     playGenieMagic();
   };
