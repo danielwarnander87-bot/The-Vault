@@ -1,21 +1,962 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>The Vault</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#2a1240; --sky-mid:#7a2d6e; --sky-glow:#e0508f; --sand-far:#c98a8f;
+    --sand-near:#e8b0a0; --stone:#3a1f38; --stone-light:#5a3352; --gold:#e8c072;
+    --parchment:#f4e6d8;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow-x:hidden;}
+  body{
+    font-family:'Nunito',sans-serif; color:var(--parchment); min-height:100vh; min-height:100dvh;
+    background:linear-gradient(180deg,var(--sky-top) 0%, var(--sky-mid) 42%, var(--sand-far) 68%, var(--sand-near) 100%);
+    position:relative;
+  }
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyAQO6RJHBzF5wHYw49XbF3pm-A1j5hgJAc",
-  authDomain: "vault-9ddb0.firebaseapp.com",
-  projectId: "vault-9ddb0",
-  storageBucket: "vault-9ddb0.firebasestorage.app",
-  messagingSenderId: "42599315639",
-  appId: "1:42599315639:web:7cc5629720045807cff532",
-  measurementId: "G-9LVQG0RM6S"
-};
+  /* ============ SCENE ============ */
+  .scene{position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none;}
+  .haze-sun{position:absolute; top:14%; left:50%; transform:translateX(-50%); width:340px; height:340px; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,210,230,0.9), rgba(224,80,143,0.5) 45%, transparent 72%);
+    filter:blur(6px); animation:sunPulse 8s ease-in-out infinite;}
+  @keyframes sunPulse{0%,100%{opacity:0.85;}50%{opacity:1;}}
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+  .haze-drift{position:absolute; border-radius:50%; filter:blur(40px); opacity:0.5; mix-blend-mode:screen;}
+  .haze1{width:50vw; height:220px; top:38%; left:-10%; background:radial-gradient(ellipse,rgba(255,180,210,0.4),transparent 70%); animation:hazeMove1 46s ease-in-out infinite;}
+  .haze2{width:60vw; height:260px; top:52%; right:-15%; background:radial-gradient(ellipse,rgba(230,140,180,0.35),transparent 70%); animation:hazeMove2 58s ease-in-out infinite;}
+  .haze3{width:45vw; height:200px; top:65%; left:20%; background:radial-gradient(ellipse,rgba(255,200,190,0.3),transparent 70%); animation:hazeMove1 39s ease-in-out infinite reverse;}
+  @keyframes hazeMove1{0%,100%{transform:translateX(0);}50%{transform:translateX(6vw);}}
+  @keyframes hazeMove2{0%,100%{transform:translateX(0);}50%{transform:translateX(-7vw);}}
+
+  .sand-mote{position:absolute; bottom:0; width:3px; height:3px; border-radius:50%; background:rgba(255,220,225,0.6);
+    animation:moteRise linear infinite;}
+  @keyframes moteRise{
+    0%{transform:translate(0,0); opacity:0;}
+    10%{opacity:0.8;}
+    90%{opacity:0.5;}
+    100%{transform:translate(var(--mx,20px),-70vh); opacity:0;}
+  }
+
+  .monument{position:absolute; bottom:18%;}
+  .pyramid-wrap{left:50%; transform:translateX(-50%); bottom:16%; z-index:3;}
+  .sphinx-wrap{left:9%; bottom:13%; z-index:4; opacity:0.92;}
+  .ape-left{left:-2%; bottom:15%; z-index:5;}
+  .ape-right{right:-2%; bottom:15%; z-index:5; transform:scaleX(-1);}
+  .obelisk{position:absolute; bottom:17%;}
+  .obelisk1{left:20%; z-index:2; opacity:0.75;}
+  .obelisk2{right:16%; z-index:2; opacity:0.7;}
+  .urn{position:absolute; bottom:16.5%; opacity:0.8; z-index:4;}
+  .urn1{left:38%;} .urn2{right:32%;}
+
+  .dune-fg{position:absolute; bottom:0; left:0; right:0; height:20%; z-index:6;
+    background:linear-gradient(180deg, var(--sand-near), #d99878);
+    clip-path:polygon(0% 40%, 8% 30%, 20% 45%, 33% 25%, 48% 42%, 62% 20%, 78% 38%, 90% 22%, 100% 35%, 100% 100%, 0% 100%);}
+
+  /* ============ UI ============ */
+  .wrap{position:relative; z-index:10; max-width:920px; margin:0 auto; padding:40px 20px 70px;}
+  header{text-align:center; margin-bottom:26px;}
+  .eyebrow{font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.25em; text-transform:uppercase; color:var(--gold); margin-bottom:10px;}
+  h1{font-family:'Cinzel',serif; font-weight:900; font-size:2.6em; margin:0 0 10px; color:var(--parchment);
+    text-shadow:0 4px 18px rgba(224,80,143,0.6), 0 0 40px rgba(0,0,0,0.4);}
+  .sub{font-size:1.02em; color:var(--parchment); opacity:0.85; max-width:480px; margin:0 auto; line-height:1.55;}
+
+  .temple-panel{
+    background:linear-gradient(165deg, rgba(58,31,56,0.88), rgba(40,18,40,0.92));
+    border:2px solid rgba(232,192,114,0.35); border-radius:18px; padding:26px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
+    backdrop-filter:blur(4px);
+  }
+
+  .drop-zone{
+    border:2.5px dashed rgba(232,192,114,0.5); border-radius:14px; padding:36px 20px;
+    text-align:center; cursor:pointer; transition:border-color 0.2s ease, background 0.2s ease;
+    margin-bottom:20px;
+  }
+  .drop-zone:hover, .drop-zone.dragover{border-color:var(--gold); background:rgba(232,192,114,0.06);}
+  .drop-zone .dz-icon{font-size:2.4em; margin-bottom:8px;}
+  .drop-zone .dz-text{font-family:'Cinzel',serif; font-weight:700; font-size:1.05em; color:var(--gold); margin-bottom:4px;}
+  .drop-zone .dz-sub{font-size:12.5px; color:var(--parchment); opacity:0.65;}
+  #fileInput{display:none;}
+
+  .vault-toolbar{display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;}
+  .vault-search{flex:1; min-width:160px; background:rgba(0,0,0,0.25); border:1.5px solid rgba(232,192,114,0.3);
+    border-radius:100px; padding:9px 16px; color:var(--parchment); font-size:14px; outline:none;}
+  .vault-search::placeholder{color:rgba(244,230,216,0.45);}
+  .vault-count{font-family:'Cinzel',serif; font-size:12px; color:var(--gold); letter-spacing:0.06em; white-space:nowrap;}
+
+  .vault-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px;}
+  .artifact-card{
+    background:linear-gradient(160deg, rgba(90,51,82,0.5), rgba(58,31,56,0.6));
+    border:1.5px solid rgba(232,192,114,0.25); border-radius:12px; padding:12px;
+    cursor:pointer; transition:transform 0.15s ease, border-color 0.15s ease; position:relative;
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+  }
+  .artifact-card:hover{transform:translateY(-3px); border-color:var(--gold);}
+  .artifact-thumb{width:100%; height:80px; border-radius:8px; margin-bottom:8px; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.25); font-size:2em;}
+  .artifact-thumb img{width:100%; height:100%; object-fit:cover;}
+  .artifact-name{font-size:12px; font-weight:700; color:var(--parchment); word-break:break-word; line-height:1.3; margin-bottom:2px;}
+  .artifact-meta{font-size:10px; color:var(--gold); opacity:0.75;}
+  .artifact-del{
+    position:absolute; top:6px; right:6px; width:20px; height:20px; border-radius:6px; border:none;
+    background:rgba(0,0,0,0.45); color:#ffb3b3; font-size:12px; cursor:pointer; display:none;
+    align-items:center; justify-content:center;
+  }
+  .artifact-card:hover .artifact-del{display:flex;}
+
+  .vault-empty{text-align:center; padding:30px 10px; color:var(--parchment); opacity:0.55; font-size:14px;}
+
+  .pick-banner{
+    background:linear-gradient(135deg, rgba(232,192,114,0.22), rgba(224,80,143,0.18));
+    border:1.5px solid rgba(232,192,114,0.5); border-radius:12px; padding:12px 16px;
+    font-family:'Cinzel',serif; font-size:13px; text-align:center; color:var(--gold);
+    margin-bottom:16px;
+  }
+
+  .storage-note{text-align:center; font-size:11.5px; color:var(--parchment); opacity:0.5; margin-top:18px;}
+
+  /* ---------- preview modal ---------- */
+  .preview-overlay{position:fixed; inset:0; z-index:50; background:rgba(10,5,15,0.85); display:none;
+    align-items:center; justify-content:center; padding:24px; backdrop-filter:blur(4px);}
+  .preview-overlay.open{display:flex;}
+  .preview-modal{background:linear-gradient(165deg, rgba(58,31,56,0.97), rgba(30,14,30,0.98));
+    border:2px solid rgba(232,192,114,0.4); border-radius:16px; max-width:560px; width:100%; max-height:82vh;
+    overflow-y:auto; padding:20px; box-shadow:0 24px 70px rgba(0,0,0,0.6);}
+  .preview-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px;}
+  .preview-head span{font-family:'Cinzel',serif; font-weight:700; font-size:14px; color:var(--gold); word-break:break-word;}
+  .preview-head button{flex-shrink:0; background:rgba(255,255,255,0.1); border:1px solid rgba(232,192,114,0.3);
+    color:var(--parchment); border-radius:8px; width:28px; height:28px; cursor:pointer;}
+  .preview-body{text-align:center;}
+  .preview-body img{max-width:100%; border-radius:10px;}
+  .preview-body .no-preview{font-size:13px; opacity:0.7; padding:30px 10px;}
+  .preview-actions{display:flex; gap:10px; margin-top:16px; justify-content:center;}
+  .vault-btn{
+    font-family:'Nunito',sans-serif; font-weight:800; font-size:13px;
+    border:2px solid var(--gold); background:rgba(232,192,114,0.12); color:var(--gold);
+    padding:9px 18px; border-radius:100px; cursor:pointer;
+  }
+  .vault-btn:active{background:rgba(232,192,114,0.28);}
+  .vault-btn.danger{border-color:#ff8a8a; color:#ffb3b3; background:rgba(255,138,138,0.1);}
+
+  footer{text-align:center; margin-top:26px; font-size:12px; color:var(--parchment); opacity:0.55; line-height:1.6;}
+
+  .mute-toggle{
+    position:fixed; top:16px; right:16px; z-index:20;
+    font-family:'Nunito',sans-serif; font-size:15px; color:var(--parchment);
+    background:rgba(40,18,40,0.55); border:1.5px solid rgba(232,192,114,0.35); border-radius:100px;
+    padding:6px 12px; cursor:pointer; backdrop-filter:blur(4px);
+  }
+  .mute-toggle.is-muted{opacity:0.55;}
+
+  /* ---------- The Genie — follows the cursor, flies to a card on hold ---------- */
+  #genie{
+    position:fixed; top:0; left:0; z-index:60; pointer-events:none;
+    font-size:34px; will-change:transform;
+  }
+  #genie .genie-bob{display:inline-block; animation:genieBob 2.2s ease-in-out infinite;
+    filter:drop-shadow(0 6px 10px rgba(0,0,0,0.4)) drop-shadow(0 0 14px rgba(224,80,143,0.5));}
+  @keyframes genieBob{0%,100%{transform:translateY(0) rotate(-4deg);}50%{transform:translateY(-8px) rotate(4deg);}}
+  #genie.charging .genie-bob{animation:genieCharging 0.35s ease-in-out infinite;}
+  @keyframes genieCharging{0%,100%{transform:translateY(0) scale(1) rotate(-6deg);}50%{transform:translateY(-4px) scale(1.15) rotate(6deg);}}
+
+  .hold-ring{
+    position:absolute; top:6px; left:50%; transform:translateX(-50%);
+    width:26px; height:26px; border-radius:50%;
+    background:conic-gradient(var(--gold) calc(var(--pct,0) * 1%), rgba(255,255,255,0.15) 0);
+    -webkit-mask:radial-gradient(closest-side, transparent 68%, #000 70%);
+    mask:radial-gradient(closest-side, transparent 68%, #000 70%);
+    z-index:5;
+  }
+  .artifact-card.charging{border-color:var(--gold); box-shadow:0 0 22px rgba(232,192,114,0.35);}
+  .artifact-card.exploding{pointer-events:none;}
+
+  .firework-layer{position:fixed; inset:0; z-index:55; pointer-events:none;}
+  .firework-bit{position:absolute; border-radius:50%; will-change:transform,opacity;
+    animation:fireworkFly 0.85s cubic-bezier(.15,.6,.3,1) forwards;}
+  @keyframes fireworkFly{
+    0%{transform:translate(0,0) scale(1); opacity:1;}
+    100%{transform:translate(var(--fx,60px),var(--fy,-60px)) scale(0.3); opacity:0;}
+  }
+
+  .vapor-wisp{position:fixed; top:0; left:0; z-index:59; pointer-events:none; border-radius:50%;
+    background:radial-gradient(circle, rgba(224,150,220,0.55), rgba(150,90,200,0.25) 55%, transparent 75%);
+    filter:blur(3px); will-change:transform,opacity;
+    animation:wispFade 0.85s ease-out forwards;}
+  @keyframes wispFade{
+    0%{transform:translate(0,0) scale(0.6); opacity:0.65;}
+    100%{transform:translate(var(--wx,0px),var(--wy,-18px)) scale(1.8); opacity:0;}
+  }
+</style>
+</head>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
+  import {
+    getFirestore, collection, addDoc, getDocs, getDoc, deleteDoc, doc, onSnapshot, query, orderBy
+  } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAQO6RJHBzF5wHYw49XbF3pm-A1j5hgJAc",
+    authDomain: "vault-9ddb0.firebaseapp.com",
+    projectId: "vault-9ddb0",
+    storageBucket: "vault-9ddb0.firebasestorage.app",
+    messagingSenderId: "42599315639",
+    appId: "1:42599315639:web:7cc5629720045807cff532",
+    measurementId: "G-9LVQG0RM6S"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window._fb = { db, collection, addDoc, getDocs, getDoc, deleteDoc, doc, onSnapshot, query, orderBy };
+  window._fbReady = true;
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<body>
+
+<div class="scene" aria-hidden="true">
+  <div class="haze-sun"></div>
+  <div class="haze-drift haze1"></div>
+  <div class="haze-drift haze2"></div>
+  <div class="haze-drift haze3"></div>
+
+  <!-- pyramid -->
+  <div class="monument pyramid-wrap">
+    <svg width="360" height="220" viewBox="0 0 360 220">
+      <polygon points="180,10 340,210 20,210" fill="#6b3a5e"/>
+      <polygon points="180,10 340,210 250,210" fill="#8a4f74"/>
+      <line x1="180" y1="10" x2="150" y2="210" stroke="#4a2a48" stroke-width="2" opacity="0.5"/>
+      <line x1="180" y1="10" x2="210" y2="210" stroke="#4a2a48" stroke-width="2" opacity="0.5"/>
+      <line x1="60" y1="150" x2="300" y2="150" stroke="#4a2a48" stroke-width="1.5" opacity="0.35"/>
+      <line x1="40" y1="180" x2="320" y2="180" stroke="#4a2a48" stroke-width="1.5" opacity="0.35"/>
+    </svg>
+  </div>
+
+  <!-- sphinx -->
+  <div class="monument sphinx-wrap">
+    <svg width="260" height="140" viewBox="0 0 260 140">
+      <path d="M10 130 Q10 90 40 88 L60 88 Q58 60 80 40 Q95 26 110 26 Q126 26 132 42 Q136 55 132 70
+               L150 70 Q170 70 178 90 Q210 92 230 110 L230 130 Z" fill="#7a4468"/>
+      <rect x="95" y="20" width="34" height="20" rx="4" fill="#7a4468"/>
+      <path d="M90 44 Q80 60 85 88" stroke="#5a3352" stroke-width="6" fill="none" opacity="0.6"/>
+    </svg>
+  </div>
+
+  <!-- ape statues -->
+  <div class="monument ape-left">
+    <svg width="190" height="200" viewBox="0 0 190 200">
+      <rect x="30" y="170" width="130" height="26" fill="#5a3352"/>
+      <ellipse cx="95" cy="90" rx="58" ry="66" fill="#6b3a5e"/>
+      <ellipse cx="65" cy="42" rx="14" ry="16" fill="#6b3a5e"/>
+      <ellipse cx="125" cy="42" rx="14" ry="16" fill="#6b3a5e"/>
+      <circle cx="95" cy="55" r="34" fill="#6b3a5e"/>
+      <ellipse cx="95" cy="78" rx="20" ry="14" fill="#6b3a5e"/>
+      <ellipse cx="60" cy="130" rx="26" ry="44" fill="#5a3352"/>
+      <ellipse cx="130" cy="130" rx="26" ry="44" fill="#5a3352"/>
+      <ellipse cx="95" cy="52" rx="17" ry="7" fill="#4a2a48"/>
+      <ellipse cx="95" cy="82" rx="9" ry="7" fill="#4a2a48"/>
+    </svg>
+  </div>
+  <div class="monument ape-right">
+    <svg width="190" height="200" viewBox="0 0 190 200">
+      <rect x="30" y="170" width="130" height="26" fill="#5a3352"/>
+      <ellipse cx="95" cy="90" rx="58" ry="66" fill="#6b3a5e"/>
+      <ellipse cx="65" cy="42" rx="14" ry="16" fill="#6b3a5e"/>
+      <ellipse cx="125" cy="42" rx="14" ry="16" fill="#6b3a5e"/>
+      <circle cx="95" cy="55" r="34" fill="#6b3a5e"/>
+      <ellipse cx="95" cy="78" rx="20" ry="14" fill="#6b3a5e"/>
+      <ellipse cx="60" cy="130" rx="26" ry="44" fill="#5a3352"/>
+      <ellipse cx="130" cy="130" rx="26" ry="44" fill="#5a3352"/>
+      <ellipse cx="95" cy="52" rx="17" ry="7" fill="#4a2a48"/>
+      <ellipse cx="95" cy="82" rx="9" ry="7" fill="#4a2a48"/>
+    </svg>
+  </div>
+
+  <!-- obelisks + urns -->
+  <div class="monument obelisk obelisk1">
+    <svg width="40" height="180" viewBox="0 0 40 180"><polygon points="20,0 30,20 30,170 10,170 10,20" fill="#8a4f74"/></svg>
+  </div>
+  <div class="monument obelisk obelisk2">
+    <svg width="34" height="150" viewBox="0 0 34 150"><polygon points="17,0 26,18 26,142 8,142 8,18" fill="#8a4f74"/></svg>
+  </div>
+  <div class="monument urn urn1">
+    <svg width="46" height="60" viewBox="0 0 46 60"><path d="M14 4 Q23 -4 32 4 L34 14 Q40 20 34 34 L30 56 L16 56 L12 34 Q6 20 12 14 Z" fill="#7a4468"/></svg>
+  </div>
+  <div class="monument urn urn2">
+    <svg width="40" height="52" viewBox="0 0 40 52"><path d="M12 3 Q20 -3 28 3 L30 12 Q35 18 30 30 L26 48 L14 48 L10 30 Q5 18 10 12 Z" fill="#7a4468"/></svg>
+  </div>
+
+  <div class="dune-fg"></div>
+</div>
+
+<div class="wrap">
+  <button class="mute-toggle" id="muteBtn" onclick="toggleVaultMute()">🔊</button>
+  <header>
+    <div class="eyebrow">A Resting Place For Files</div>
+    <h1>The Vault</h1>
+    <p class="sub">Drop anything here to keep it safe — documents, images, exports from your other tools. Pull them back out whenever you need them.</p>
+  </header>
+
+  <div class="temple-panel">
+    <div class="pick-banner" id="pickBanner" style="display:none;">📤 Pick a file below to send it back to Action Plan 3000.</div>
+
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="dz-icon">🏺</div>
+      <div class="dz-text">Drop files here, or tap to browse</div>
+      <div class="dz-sub">Anything — PDFs, images, spreadsheets, exports. Stored right in this page, on this device.</div>
+      <input type="file" id="fileInput" multiple onchange="handleFileInput(event)">
+    </div>
+
+    <div class="vault-toolbar">
+      <input type="text" class="vault-search" id="vaultSearch" placeholder="🔍 Search the vault..." oninput="renderVault()">
+      <div class="vault-count" id="vaultCount">0 artifacts</div>
+    </div>
+
+    <div class="vault-grid" id="vaultGrid"></div>
+    <div class="storage-note" id="storageNote"></div>
+  </div>
+
+  <footer>
+    Files live in this browser's storage, tied to this exact page. They won't automatically appear in your other tools —<br>
+    pull one out (⬇) when you need it, then load it into whichever app is asking for it.
+  </footer>
+</div>
+
+<div id="genie"><span class="genie-bob">🧞</span></div>
+<div class="firework-layer" id="fireworkLayer"></div>
+
+<div class="preview-overlay" id="previewOverlay" onclick="if(event.target===this)closePreview();">
+  <div class="preview-modal">
+    <div class="preview-head">
+      <span id="previewName"></span>
+      <button onclick="closePreview()">✕</button>
+    </div>
+    <div class="preview-body" id="previewBody"></div>
+    <div class="preview-actions">
+      <button class="vault-btn" onclick="downloadCurrentArtifact()">⬇ Download</button>
+      <button class="vault-btn danger" onclick="deleteCurrentArtifact()">🗑 Remove</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   THE VAULT — files stored in this browser via IndexedDB, keyed
+   to this exact page. Real files (as Blobs), not just text, so
+   PDFs/images/anything can round-trip cleanly on download. Backed by
+   Cloud Firestore now instead of local IndexedDB, so the same vault is
+   genuinely shared across every device that opens this page — not just
+   between tabs on one device.
+   ============================================================ */
+const ARTIFACTS_COLLECTION='artifacts';
+const MAX_FILE_BYTES=700000; // ~700KB raw — stays safely under Firestore's 1MiB per-document limit once base64-encoded (+33%)
+let currentPreviewId=null;
+
+function waitForFirebase(){
+  return new Promise(resolve=>{
+    if(window._fbReady){ resolve(); return; }
+    window.addEventListener('firebase-ready', ()=>resolve(), {once:true});
+  });
+}
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result.split(',')[1]);
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+function base64ToBlob(base64, mime){
+  const byteChars=atob(base64);
+  const byteNumbers=new Array(byteChars.length);
+  for(let i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
+  return new Blob([new Uint8Array(byteNumbers)], {type:mime||'application/octet-stream'});
+}
+async function addArtifact(file){
+  if(file.size>MAX_FILE_BYTES){
+    const err=new Error('TOO_BIG'); err.code='TOO_BIG'; throw err;
+  }
+  const base64=await fileToBase64(file);
+  const {db, collection, addDoc}=window._fb;
+  await addDoc(collection(db, ARTIFACTS_COLLECTION), {
+    name:file.name, type:file.type||'application/octet-stream', size:file.size,
+    dateAdded:Date.now(), dataBase64:base64
+  });
+}
+async function getAllArtifacts(){
+  const {db, collection, getDocs, query, orderBy}=window._fb;
+  const q=query(collection(db, ARTIFACTS_COLLECTION), orderBy('dateAdded','desc'));
+  const snap=await getDocs(q);
+  return snap.docs.map(d=>{
+    const data=d.data();
+    return {id:d.id, name:data.name, type:data.type, size:data.size, dateAdded:data.dateAdded,
+      blob:base64ToBlob(data.dataBase64, data.type)};
+  });
+}
+async function getArtifact(id){
+  const {db, doc, getDoc}=window._fb;
+  const snap=await getDoc(doc(db, ARTIFACTS_COLLECTION, id));
+  if(!snap.exists()) return null;
+  const data=snap.data();
+  return {id:snap.id, name:data.name, type:data.type, size:data.size, dateAdded:data.dateAdded,
+    blob:base64ToBlob(data.dataBase64, data.type)};
+}
+async function deleteArtifactById(id){
+  const {db, doc, deleteDoc}=window._fb;
+  await deleteDoc(doc(db, ARTIFACTS_COLLECTION, id));
+}
+function startLiveSync(){
+  const {db, collection, onSnapshot, query, orderBy}=window._fb;
+  const q=query(collection(db, ARTIFACTS_COLLECTION), orderBy('dateAdded','desc'));
+  onSnapshot(q, ()=>{ renderVault(); }, ()=>{ /* ignore transient listen errors */ });
+}
+
+function fmtSize(bytes){
+  if(bytes<1024) return bytes+' B';
+  if(bytes<1024*1024) return (bytes/1024).toFixed(1)+' KB';
+  return (bytes/(1024*1024)).toFixed(1)+' MB';
+}
+function fmtDate(ts){
+  return new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+function iconFor(type, name){
+  if(type.startsWith('image/')) return null; // handled via thumbnail
+  if(type==='application/pdf') return '📕';
+  if(type.includes('spreadsheet')||/\.(xlsx?|csv)$/i.test(name)) return '📊';
+  if(type.includes('word')||/\.docx?$/i.test(name)) return '📝';
+  if(type.includes('zip')||/\.zip$/i.test(name)) return '🗜️';
+  if(type.startsWith('audio/')) return '🎵';
+  if(type.startsWith('video/')) return '🎬';
+  if(/\.(html?|json|js|css)$/i.test(name)) return '⚙️';
+  return '📦';
+}
+
+async function renderVault(){
+  const grid=document.getElementById('vaultGrid');
+  const countEl=document.getElementById('vaultCount');
+  const query=(document.getElementById('vaultSearch').value||'').toLowerCase().trim();
+  const all=await getAllArtifacts();
+  const filtered=query? all.filter(a=>a.name.toLowerCase().includes(query)) : all;
+
+  countEl.textContent=all.length+' artifact'+(all.length===1?'':'s');
+
+  if(!filtered.length){
+    grid.innerHTML='<div class="vault-empty">'+(query?'Nothing matches that search.':'The vault is empty — drop something in above.')+'</div>';
+  } else {
+    grid.innerHTML='';
+    filtered.forEach(a=>{
+      const card=document.createElement('div');
+      card.className='artifact-card';
+      card.onclick=()=>{
+        if(card.dataset.exploding==='1') return;
+        if(pickMode){ getArtifact(a.id).then(sendFileBackToOpener); }
+        else { openPreview(a.id); }
+      };
+      const icon=iconFor(a.type, a.name);
+      let thumbHtml = icon ? icon : '🖼️';
+      card.innerHTML=
+        '<button class="artifact-del" onclick="event.stopPropagation();quickDelete(\''+a.id+'\')" title="Remove">✕</button>'+
+        '<div class="hold-ring" style="display:none;"></div>'+
+        '<div class="artifact-thumb" id="thumb-'+a.id+'">'+thumbHtml+'</div>'+
+        '<div class="artifact-name">'+escapeHtmlVault(a.name)+'</div>'+
+        '<div class="artifact-meta">'+fmtSize(a.size)+' · '+fmtDate(a.dateAdded)+'</div>';
+      grid.appendChild(card);
+      attachLongPress(card, a.id);
+      if(a.type.startsWith('image/')){
+        const url=URL.createObjectURL(a.blob);
+        const thumbEl=document.getElementById('thumb-'+a.id);
+        thumbEl.innerHTML='<img src="'+url+'" alt="">';
+      }
+    });
+  }
+  updateStorageNote(all);
+}
+function escapeHtmlVault(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function updateStorageNote(all){
+  const note=document.getElementById('storageNote');
+  if(!note) return;
+  const totalBytes=(all||[]).reduce((sum,a)=>sum+(a.size||0),0);
+  note.textContent='Synced via the cloud — '+fmtSize(totalBytes)+' across '+all.length+' file'+(all.length===1?'':'s')+'. Each file up to ~700 KB.';
+}
+
+async function handleFiles(fileList){
+  let tooBig=[];
+  for(const file of fileList){
+    try{ await addArtifact(file); }
+    catch(e){ if(e && e.code==='TOO_BIG') tooBig.push(file.name); }
+  }
+  if(tooBig.length){
+    alert('These files are too big for the vault right now (about 700 KB max each):\n\n'+tooBig.join('\n'));
+  }
+  playJarRattle();
+  renderVault();
+}
+function handleFileInput(e){
+  handleFiles(e.target.files);
+  e.target.value='';
+}
+
+function openPreview(id){
+  currentPreviewId=id;
+  getArtifact(id).then(a=>{
+    if(!a) return;
+    document.getElementById('previewName').textContent=a.name;
+    const body=document.getElementById('previewBody');
+    if(a.type.startsWith('image/')){
+      const url=URL.createObjectURL(a.blob);
+      body.innerHTML='<img src="'+url+'" alt="">';
+    } else {
+      body.innerHTML='<div class="no-preview">'+iconFor(a.type,a.name)+'<br><br>No inline preview for this file type — download it to open.</div>';
+    }
+    document.getElementById('previewOverlay').classList.add('open');
+  });
+}
+function closePreview(){
+  document.getElementById('previewOverlay').classList.remove('open');
+  currentPreviewId=null;
+}
+function downloadCurrentArtifact(){
+  if(currentPreviewId===null) return;
+  getArtifact(currentPreviewId).then(a=>{
+    if(!a) return;
+    const url=URL.createObjectURL(a.blob);
+    const link=document.createElement('a');
+    link.href=url; link.download=a.name;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  });
+}
+function deleteCurrentArtifact(){
+  if(currentPreviewId===null) return;
+  if(!confirm('Remove this from the vault? This can\'t be undone.')) return;
+  deleteArtifactById(currentPreviewId).then(()=>{
+    closePreview();
+    renderVault();
+  });
+}
+function quickDelete(id){
+  if(!confirm('Remove this from the vault?')) return;
+  deleteArtifactById(id).then(renderVault);
+}
+
+/* ---------- drag and drop ---------- */
+const dropZone=document.getElementById('dropZone');
+['dragenter','dragover'].forEach(evt=>{
+  dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.add('dragover'); });
+});
+['dragleave','drop'].forEach(evt=>{
+  dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.remove('dragover'); });
+});
+dropZone.addEventListener('drop', e=>{
+  if(e.dataTransfer.files && e.dataTransfer.files.length){ handleFiles(e.dataTransfer.files); }
+});
+
+/* ---------- sand motes ---------- */
+function spawnMotes(){
+  const scene=document.querySelector('.scene');
+  for(let i=0;i<3;i++){
+    const m=document.createElement('div');
+    m.className='sand-mote';
+    m.style.left=(Math.random()*100)+'%';
+    m.style.setProperty('--mx',(Math.random()*60-30)+'px');
+    m.style.animationDuration=(14+Math.random()*10)+'s';
+    scene.appendChild(m);
+    setTimeout(()=>m.remove(), 25000);
+  }
+}
+setInterval(spawnMotes, 2200);
+spawnMotes();
+
+/* ============================================================
+   SOUND — desert wind humming underneath everything, and a
+   rattling jar-lid sound whenever something new is sealed
+   into the vault.
+   ============================================================ */
+let vaultMuted=false;
+try{ vaultMuted = localStorage.getItem('theVault_muted')==='1'; }catch(e){}
+let audioCtx=null;
+function ensureAudioCtx(){
+  if(!audioCtx){ try{ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; } }
+  if(audioCtx.state==='suspended'){ try{ audioCtx.resume(); }catch(e){} }
+  return audioCtx;
+}
+function playTone(freq, delay, dur, type, vol){
+  if(vaultMuted) return;
+  const ctx=ensureAudioCtx();
+  if(!ctx) return;
+  try{
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=type||'sine'; o.frequency.value=freq;
+    o.connect(g); g.connect(ctx.destination);
+    const t0=ctx.currentTime+(delay||0);
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.linearRampToValueAtTime(vol||0.08, t0+0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+(dur||0.12));
+    o.start(t0); o.stop(t0+(dur||0.12)+0.02);
+  }catch(e){}
+}
+let noiseBuffer=null;
+function ensureNoiseBuffer(ctx){
+  if(noiseBuffer) return noiseBuffer;
+  const len=ctx.sampleRate*4;
+  noiseBuffer=ctx.createBuffer(1,len,ctx.sampleRate);
+  const data=noiseBuffer.getChannelData(0);
+  for(let i=0;i<len;i++) data[i]=Math.random()*2-1;
+  return noiseBuffer;
+}
+function playNoiseHit(delay, dur, vol, freq, q, type){
+  if(vaultMuted) return;
+  const ctx=ensureAudioCtx();
+  if(!ctx) return;
+  try{
+    const buf=ensureNoiseBuffer(ctx);
+    const src=ctx.createBufferSource();
+    src.buffer=buf;
+    const filter=ctx.createBiquadFilter();
+    filter.type=type||'bandpass'; filter.frequency.value=freq||1400; filter.Q.value=q||3;
+    const g=ctx.createGain();
+    const t0=ctx.currentTime+(delay||0);
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.linearRampToValueAtTime(vol||0.08, t0+0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+(dur||0.08));
+    src.connect(filter); filter.connect(g); g.connect(ctx.destination);
+    src.start(t0); src.stop(t0+(dur||0.08)+0.02);
+  }catch(e){}
+}
+
+/* ---- desert wind — a constant, quiet gusting loop ---- */
+let windNodes=null;
+function startWind(){
+  if(vaultMuted || windNodes) return;
+  const ctx=ensureAudioCtx();
+  if(!ctx) return;
+  try{
+    const buf=ensureNoiseBuffer(ctx);
+    const src=ctx.createBufferSource();
+    src.buffer=buf; src.loop=true;
+    const filter=ctx.createBiquadFilter();
+    filter.type='lowpass'; filter.frequency.value=520;
+    const gain=ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.03, ctx.currentTime+3);
+    const filterLfo=ctx.createOscillator();
+    filterLfo.type='sine'; filterLfo.frequency.value=0.06;
+    const filterLfoGain=ctx.createGain(); filterLfoGain.gain.value=160;
+    filterLfo.connect(filterLfoGain); filterLfoGain.connect(filter.frequency);
+    const gustLfo=ctx.createOscillator();
+    gustLfo.type='sine'; gustLfo.frequency.value=0.045;
+    const gustLfoGain=ctx.createGain(); gustLfoGain.gain.value=0.014;
+    gustLfo.connect(gustLfoGain); gustLfoGain.connect(gain.gain);
+    src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    src.start(); filterLfo.start(); gustLfo.start();
+    windNodes={src,filter,gain,filterLfo,gustLfo};
+  }catch(e){}
+}
+function stopWind(){
+  if(!windNodes) return;
+  try{
+    const ctx=audioCtx;
+    const now=ctx.currentTime;
+    windNodes.gain.gain.cancelScheduledValues(now);
+    windNodes.gain.gain.setValueAtTime(windNodes.gain.gain.value, now);
+    windNodes.gain.gain.linearRampToValueAtTime(0.0001, now+0.7);
+    const nodes=windNodes;
+    setTimeout(()=>{ try{ nodes.src.stop(); nodes.filterLfo.stop(); nodes.gustLfo.stop(); }catch(e){} },800);
+  }catch(e){}
+  windNodes=null;
+}
+
+/* ---- mystical theme — a slow, spacious bell melody over a sustained
+   pad, in A harmonic minor for that exotic/ancient color ---- */
+function playMysticTone(freq, delay, dur, type, vol){
+  if(vaultMuted) return;
+  const ctx=ensureAudioCtx();
+  if(!ctx) return;
+  try{
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=type||'sine'; o.frequency.value=freq;
+    o.connect(g); g.connect(ctx.destination);
+    const t0=ctx.currentTime+(delay||0);
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.linearRampToValueAtTime(vol||0.045, t0+0.12);   // soft attack
+    g.gain.linearRampToValueAtTime((vol||0.045)*0.8, t0+dur*0.6); // gentle sustain
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);   // slow release
+    o.start(t0); o.stop(t0+dur+0.05);
+  }catch(e){}
+}
+const THEME_STEP=0.17; // slow, spacious — Chrono Trigger-esque breathing room
+const THEME_LEAD_A=[
+  {step:0,  freq:440.00, dur:1.1},  // A4
+  {step:6,  freq:523.25, dur:0.65}, // C5
+  {step:9,  freq:493.88, dur:0.6},  // B4
+  {step:12, freq:659.25, dur:1.3},  // E5
+];
+const THEME_BASS_A=[
+  {step:0, freq:110.00, dur:2.7},   // A2, sustained under the whole bar
+  {step:8, freq:82.41,  dur:1.3},   // E2
+];
+const THEME_LEAD_B=[
+  {step:0,  freq:415.30, dur:0.8},  // G#4 — the harmonic-minor color tone
+  {step:5,  freq:440.00, dur:0.6},
+  {step:9,  freq:349.23, dur:0.6},  // F4
+  {step:13, freq:329.63, dur:1.3},  // E4 — resolves back toward A
+];
+const THEME_BASS_B=[
+  {step:0, freq:87.31, dur:1.3},    // F2
+  {step:8, freq:82.41, dur:1.4},    // E2
+];
+let themeActive=false, themeTimeoutId=null, themeBarToggle=0;
+function playThemeBar(lead, bass){
+  lead.forEach(n=>playMysticTone(n.freq, n.step*THEME_STEP, n.dur, 'triangle', 0.05));
+  bass.forEach(n=>playMysticTone(n.freq, n.step*THEME_STEP, n.dur, 'sine', 0.038));
+}
+function scheduleTheme(){
+  if(!themeActive || vaultMuted) return;
+  const barDuration=16*THEME_STEP;
+  if(themeBarToggle===0){ playThemeBar(THEME_LEAD_A, THEME_BASS_A); } else { playThemeBar(THEME_LEAD_B, THEME_BASS_B); }
+  themeBarToggle = themeBarToggle===0 ? 1 : 0;
+  themeTimeoutId=setTimeout(scheduleTheme, barDuration*1000);
+}
+function startTheme(){
+  if(themeActive || vaultMuted) return;
+  themeActive=true; themeBarToggle=0;
+  scheduleTheme();
+}
+function stopTheme(){
+  themeActive=false;
+  if(themeTimeoutId){ clearTimeout(themeTimeoutId); themeTimeoutId=null; }
+}
+function toggleVaultMute(){
+  vaultMuted=!vaultMuted;
+  try{ localStorage.setItem('theVault_muted', vaultMuted?'1':'0'); }catch(e){}
+  const btn=document.getElementById('muteBtn');
+  if(btn){ btn.textContent=vaultMuted?'🔇':'🔊'; btn.classList.toggle('is-muted', vaultMuted); }
+  if(vaultMuted){ stopWind(); stopTheme(); } else { ensureAudioCtx(); startWind(); startTheme(); }
+}
+document.addEventListener('click', function firstTouch(){
+  ensureAudioCtx();
+  if(!vaultMuted){ startWind(); startTheme(); }
+  document.removeEventListener('click', firstTouch);
+}, {once:true});
+
+/* ---- rattling jar lid — plays the moment something's sealed into the vault ---- */
+function playJarRattle(){
+  if(vaultMuted) return;
+  // an initial clunk as the lid drops, then a fast, irregular rattle
+  // that settles down and slows, like a lid vibrating on a jar rim
+  playNoiseHit(0, 0.05, 0.09, 900, 2.5, 'bandpass');
+  playTone(180, 0.01, 0.06, 'square', 0.05);
+
+  let t=0.09;
+  const hits=11;
+  for(let i=0;i<hits;i++){
+    const settle=i/hits; // 0 -> 1 as the rattle dies down
+    const gap=0.035+settle*0.05+Math.random()*0.02;
+    const vol=0.075*(1-settle*0.8);
+    playNoiseHit(t, 0.035, vol, 2200+Math.random()*800, 4, 'bandpass');
+    playTone(1400+Math.random()*400, t, 0.03, 'square', vol*0.5);
+    t+=gap;
+  }
+}
+function playGenieMagic(){
+  if(vaultMuted) return;
+  // a sparkly ascending flourish, then a soft airy whoosh as it vanishes
+  [1046.5,1318.51,1568.0,2093.0].forEach((f,i)=>playTone(f, i*0.05, 0.14, 'sine', 0.06));
+  playNoiseHit(0.05, 0.4, 0.05, 3200, 1.2, 'highpass');
+}
+
+/* ============================================================
+   THE GENIE — drifts toward the cursor, and when you hold down
+   on an artifact card long enough, flies over and makes it
+   disappear in a burst of fireworks.
+   ============================================================ */
+let cursorX=window.innerWidth/2, cursorY=window.innerHeight/2;
+let genieX=cursorX, genieY=cursorY;
+let genieTargetOverride=null;
+let geniePrevX=genieX, geniePrevY=genieY, wispFrameCount=0;
+document.addEventListener('pointermove', e=>{ cursorX=e.clientX; cursorY=e.clientY; });
+function spawnWisp(x, y, speed){
+  const layer=document.getElementById('fireworkLayer'); // shared fixed overlay, fine to reuse
+  const wisp=document.createElement('div');
+  wisp.className='vapor-wisp';
+  const size=8+Math.random()*10;
+  wisp.style.width=size+'px'; wisp.style.height=size+'px';
+  wisp.style.left=(x-size/2)+'px'; wisp.style.top=(y-size/2)+'px';
+  wisp.style.setProperty('--wx',(Math.random()*16-8)+'px');
+  wisp.style.setProperty('--wy',(-14-Math.random()*14)+'px');
+  layer.appendChild(wisp);
+  setTimeout(()=>wisp.remove(), 900);
+}
+function genieLoop(){
+  const target = genieTargetOverride || {x:cursorX, y:cursorY};
+  genieX += (target.x - genieX) * 0.1;
+  genieY += (target.y - genieY) * 0.1;
+  const el=document.getElementById('genie');
+  if(el) el.style.transform='translate('+(genieX-17)+'px,'+(genieY-46)+'px)';
+
+  // trail a soft vapor wisp behind it while it's actually moving, throttled
+  // to every 3rd frame so it reads as a wake, not a solid smear
+  const moveDist=Math.hypot(genieX-geniePrevX, genieY-geniePrevY);
+  wispFrameCount++;
+  if(moveDist>0.6 && wispFrameCount%3===0){
+    spawnWisp(genieX+17, genieY+58, moveDist);
+  }
+  geniePrevX=genieX; geniePrevY=genieY;
+
+  requestAnimationFrame(genieLoop);
+}
+requestAnimationFrame(genieLoop);
+
+const HOLD_MS=750;
+function attachLongPress(card, artifactId){
+  let pressTimer=null, holding=false, progressTimer=null, startedAt=0;
+  const ring=card.querySelector('.hold-ring');
+
+  function updateRing(){
+    if(!holding) return;
+    const pct=Math.min(100, ((performance.now()-startedAt)/HOLD_MS)*100);
+    ring.style.setProperty('--pct', pct);
+    if(pct<100) progressTimer=requestAnimationFrame(updateRing);
+  }
+  function begin(e){
+    if(e.button!==undefined && e.button!==0) return; // left-click / primary touch only
+    holding=true; startedAt=performance.now();
+    card.classList.add('charging');
+    document.getElementById('genie').classList.add('charging');
+    ring.style.display='block'; ring.style.setProperty('--pct',0);
+    const rect=card.getBoundingClientRect();
+    genieTargetOverride={x:rect.left+rect.width/2, y:rect.top-10};
+    progressTimer=requestAnimationFrame(updateRing);
+    pressTimer=setTimeout(()=>{
+      if(!holding) return;
+      completeLongPress(card, artifactId);
+    }, HOLD_MS);
+  }
+  function cancel(){
+    if(!holding) return;
+    holding=false;
+    clearTimeout(pressTimer);
+    cancelAnimationFrame(progressTimer);
+    card.classList.remove('charging');
+    document.getElementById('genie').classList.remove('charging');
+    if(ring){ ring.style.display='none'; ring.style.setProperty('--pct',0); }
+    genieTargetOverride=null;
+  }
+  card.addEventListener('pointerdown', begin);
+  card.addEventListener('pointerup', cancel);
+  card.addEventListener('pointerleave', cancel);
+  card.addEventListener('pointercancel', cancel);
+}
+function completeLongPress(card, artifactId){
+  card.dataset.exploding='1';
+  card.classList.add('exploding');
+  document.getElementById('genie').classList.remove('charging');
+  genieTargetOverride=null;
+  spawnFireworks(card);
+  playGenieMagic();
+  card.style.transition='transform 0.5s ease, opacity 0.5s ease';
+  card.style.transform='scale(0.15) rotate(20deg)';
+  card.style.opacity='0';
+  setTimeout(async ()=>{
+    await deleteArtifactById(artifactId);
+    renderVault();
+  }, 550);
+}
+function spawnFireworks(card){
+  const layer=document.getElementById('fireworkLayer');
+  const rect=card.getBoundingClientRect();
+  const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+  const colors=['#e8c072','#e0508f','#ff8fc0','#f4e6d8','#c98a8f'];
+  const count=20;
+  for(let i=0;i<count;i++){
+    const bit=document.createElement('div');
+    bit.className='firework-bit';
+    const angle=(Math.PI*2*i)/count + Math.random()*0.4;
+    const dist=50+Math.random()*70;
+    bit.style.setProperty('--fx',(Math.cos(angle)*dist)+'px');
+    bit.style.setProperty('--fy',(Math.sin(angle)*dist)+'px');
+    const size=4+Math.random()*5;
+    bit.style.width=size+'px'; bit.style.height=size+'px';
+    bit.style.left=cx+'px'; bit.style.top=cy+'px';
+    bit.style.background=colors[Math.floor(Math.random()*colors.length)];
+    bit.style.boxShadow='0 0 6px '+colors[Math.floor(Math.random()*colors.length)];
+    layer.appendChild(bit);
+    setTimeout(()=>bit.remove(), 950);
+  }
+}
+
+/* ---------- init ---------- */
+const initMuteBtn=document.getElementById('muteBtn');
+if(initMuteBtn){ initMuteBtn.textContent=vaultMuted?'🔇':'🔊'; initMuteBtn.classList.toggle('is-muted', vaultMuted); }
+waitForFirebase().then(()=>{
+  renderVault();
+  startLiveSync();
+}).catch(()=>{
+  document.getElementById('vaultGrid').innerHTML='<div class="vault-empty">Couldn\'t connect to the cloud vault — check your connection and reload.</div>';
+});
+
+/* ============================================================
+   INCOMING BRIDGE — lets another page (like Action Plan 3000)
+   hand a file straight into the vault via postMessage, without
+   either page needing to reach into the other's storage.
+   ============================================================ */
+window.addEventListener('message', async (event)=>{
+  const msg=event.data;
+  if(!msg || msg.type!=='vault-add-file') return;
+  try{
+    await waitForFirebase();
+    const byteChars=atob(msg.dataBase64);
+    const byteNumbers=new Array(byteChars.length);
+    for(let i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
+    const byteArray=new Uint8Array(byteNumbers);
+    const blob=new Blob([byteArray], {type: msg.mime||'application/octet-stream'});
+    const file=new File([blob], msg.name||'file', {type: msg.mime||'application/octet-stream'});
+    await addArtifact(file);
+    playJarRattle();
+    renderVault();
+    if(event.source) event.source.postMessage({type:'vault-add-file-ack', ok:true, name:msg.name}, event.origin);
+  }catch(err){
+    const errMsg = (err && err.code==='TOO_BIG') ? 'File is too big for the vault (~700 KB max).' : String(err);
+    if(event.source) event.source.postMessage({type:'vault-add-file-ack', ok:false, error:errMsg}, event.origin);
+  }
+});
+// tell whoever opened this tab that the vault is loaded and ready to receive
+if(window.opener){
+  try{ window.opener.postMessage({type:'vault-ready'}, '*'); }catch(e){}
+}
+
+/* ============================================================
+   OUTGOING BRIDGE — when opened with ?pick=1 (by a page like
+   Action Plan 3000 asking to load a file), tapping any artifact
+   sends it back to whoever opened this tab instead of previewing it.
+   ============================================================ */
+const pickMode = new URLSearchParams(location.search).get('pick')==='1';
+if(pickMode){
+  const banner=document.getElementById('pickBanner');
+  if(banner) banner.style.display='block';
+}
+function sendFileBackToOpener(a){
+  if(!a || !window.opener) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const base64=reader.result.split(',')[1];
+    try{
+      window.opener.postMessage({type:'vault-file-picked', name:a.name, mime:a.type, dataBase64:base64}, '*');
+      const banner=document.getElementById('pickBanner');
+      if(banner) banner.textContent='✅ Sent "'+a.name+'" back — you can switch back to that tab now.';
+      playGenieMagic();
+    }catch(e){}
+  };
+  reader.readAsDataURL(a.blob);
+}
+
+</script>
+</body>
+</html>
